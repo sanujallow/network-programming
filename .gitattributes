@@ -1,0 +1,11 @@
+# Git Attributes
+
+#ignore all .files when project is exported- this includes .gitignore and .gitattributes
+.*	export-ignore
+
+
+
+#git smudge-filter for starId
+*.py	filter=hideStarId
+*.txt	filter=hideStarId
+*.md	filter=hideStarId
