@@ -5,6 +5,7 @@ A program web server that handles http requests from a client and returns an HTT
 server code: 	webserver.py
 client code: 	webclient.py
 file: 		HelloWorld.html
+file: 		404 #sent as response when client request file not found
 
 
 #usage

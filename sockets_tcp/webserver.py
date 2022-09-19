@@ -1,9 +1,9 @@
-#*/
-# @author: Momodou Jallow 
+# */
+# @author: Momodou Jallow
 # starId: {MY_STAR_ID}
-# A program web server that handles http requests from a client 
+# A program web server that handles http requests from a client
 # and returns an HTTP response along with requested content if content is available.
-#/
+# /
 
 from socket import *
 import sys  # In order to terminate the program
@@ -44,14 +44,17 @@ while True:
             connectionSocket.send(outputdata[i].encode())
             connectionSocket.send("\r\n".encode())
         connectionSocket.close()
-        f.close()
     except IOError:
         # Send HTTP response code and message for file not found
         response_header = "HTTP/1.1 404 Not Found\r\n\r\n "
-        response = f'<h2 style="text-align: center">Oops! 404 <br>file "{filename[1:]}" could not be found </h2>'
+        # response = f'<h2 style="text-align: center">Oops! 404 <br>file "{filename[1:]}" could not be found </h2>'
         connectionSocket.send(response_header.encode(UTF_8))
-        connectionSocket.send(response.encode(UTF_8))
-        connectionSocket.send("\r\n".encode(UTF_8))
+
+        f = open('404.html')
+        response = f.readlines()
+        for i in range(0, len(response)):
+            connectionSocket.send(response[i].encode(UTF_8))
+            connectionSocket.send("\r\n".encode(UTF_8))
 
         # Close the client connection socket
         connectionSocket.close()
