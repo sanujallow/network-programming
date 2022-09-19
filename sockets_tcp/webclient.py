@@ -1,22 +1,18 @@
-#**/
+# **/
 # @author: Momodou Jallow
 # starId: {MY_STAR_ID}
-# A web client that sends http requests to a webserver 
+# A web client that sends http requests to a webserver
 # and displays response on the console.
 # @command_line_args: <serverhost> <serverport> <filename>
 # see readme file for usage
-#*/
+# */
 
-from codecs import utf_8_decode
-from ctypes import WinError
 from http import HTTPStatus
-from http.client import HTTPResponse
 from socket import *
 import sys
-from tkinter import HORIZONTAL
 
-#*/ 
-# Define TCP Socket 
+# */
+# Define TCP Socket
 # @param address-family transport-type
 # #*/
 clientSocket = socket(AF_INET, SOCK_STREAM)
@@ -27,37 +23,47 @@ CHUNK_SIZE = 1024
 HTTP_STATUS_OK = '200'
 HORIZONTAL_LINE = '_' * 50
 
-#*/ 
-# Web client setup 
+# */
+# Web client setup
 # @param serverHost
 # @param serverPort
 # */
+
+
 def initialize(serverHost, serverPort):
     try:
         clientSocket.connect((serverHost, serverPort))
     except ConnectionRefusedError as e:
         print("Connection refused")
 
-#*/  
-# Send file request to server specifying filenam 
+# */
+# Send file request to server specifying filenam
 # @param filename
 # #*/
+
+
 def send_request(filename):
     file_request = '/GET /' + filename
     clientSocket.send(file_request.encode(UTF_8))
 
-#*/ Receive response from server #*/
+# */ Receive response from server #*/
+
+
 def get_response():
     response = clientSocket.recv(CHUNK_SIZE)
     return response
 
-#*/ print received content to screen from server #*/
+# */ print received content to screen from server #*/
+
+
 def display_response(response):
     while response:
         print(f"{response.decode(UTF_8).strip(r'ï»¿')}")
         response = get_response()
 
-#*/ print user arguments to screen #*/
+# */ print user arguments to screen #*/
+
+
 def print_args():
     required_args = ['serverHost', 'serverPort', 'filename']
 
