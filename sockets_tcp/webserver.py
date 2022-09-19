@@ -1,7 +1,11 @@
-# Import socket module
-from base64 import encode
+#*/
+# @author: Momodou Jallow 
+# starId: {MY_STAR_ID}
+# A program web server that handles http requests from a client 
+# and returns an HTTP response along with requested content if content is available.
+#/
+
 from socket import *
-from http import HTTPStatus
 import sys  # In order to terminate the program
 
 serverSocket = socket(AF_INET, SOCK_STREAM)
