@@ -182,3 +182,7 @@ modules.order
 Module.symvers
 Mkfile.old
 dkms.conf
+
+
+#zip files
+*.zip
