@@ -16,7 +16,7 @@ Implementation of an an online chat application using UDP. In this application, 
 
 server code: chatserver.py
 client code: chatclient.py
-file: chat_clients.json -- data storage for chat client info
+file: chat_users.json -- data storage for chat client user login info
 
 ## Protocol Description
 
@@ -73,7 +73,7 @@ python ./chatserver.py 65015
 ```
 
 To start client and make a request
-python ./chatclient <server-name> <port-number> <username>
+python ./chatclient.py <server-name> <port-number> <username>
 
 example:
 

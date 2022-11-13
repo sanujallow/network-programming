@@ -1,0 +1,30 @@
+{
+  "momodou": {
+    "address": [
+      "127.0.0.1",
+      37314
+    ],
+    "password": "Go2boat4"
+  },
+  "momodouj": {
+    "address": [
+      "127.0.0.1",
+      55688
+    ],
+    "password": "12345"
+  },
+  "momodou3": {
+    "address": [
+      "127.0.0.1",
+      41352
+    ],
+    "password": "1234"
+  },
+  "momodou4": {
+    "address": [
+      "127.0.0.1",
+      56404
+    ],
+    "password": "123"
+  }
+}

@@ -12,6 +12,9 @@ import hashlib
 from socket import *
 from sqlite3 import Timestamp
 import sys
+from time import sleep
+from message_handler import Message
+from getpass import getpass
 
 # constants
 UTF_8 = 'utf_8'
@@ -95,25 +98,39 @@ def print_args():
 # ------------------------------------------------------------------------------------
 
 
-def send_user_name(command_message):
-    COMMAND_PREFIX = 'C|'
-
-    # append command with command prefix
-    command_datagram = COMMAND_PREFIX + command_message
-
+def send_msg(msg: str):
     # send command message datagram to server
-    clientSocket.sendto(command_datagram.encode(
+    clientSocket.sendto(msg.encode(
         UTF_8), (UDP_SERVER_HOST, int(UDP_SERVER_PORT)))
 
 
-def main(*args, **kwargs):
+def login_to_server(username):
+    print(f"Welcome {USERNAME}. Please Enter your password\n")
+    msg = Message()
+    username_msg = msg.command(USERNAME)
 
+    send_msg(username_msg)
+    response_datagram = get_response()
+    response_msg = response_datagram[0][0]
+    print(f'server: {response_msg.decode(UTF_8)}\n')
+
+    print(f"Please Enter your password\n")
+    password = getpass()
+    password_msg = msg.command(password)
+    send_msg(password_msg)
+    print('password sent...')
+    login_response = get_response()[0][0]
+    print(f'server: {login_response.decode(UTF_8)}\n')
+
+
+def main(*args, **kwargs):
     # parse user arguments and display args
+
     print_args()
 
     # execute login process
-        # send username
-    send_user_name(args[2])
+    # send username
+    login_to_server(USERNAME)
 
     # determine message type from user input - C for command, D for data, or None
 
@@ -129,7 +146,11 @@ if __name__ == "__main__":
     UDP_SERVER_PORT = sys.argv[2]
     USERNAME = sys.argv[3]
 
-    main(UDP_SERVER_HOST, UDP_SERVER_PORT, USERNAME)
+    if len(sys.argv) < 3:
+        print('Please enter valid arguments:  <server-name> <port-number> <username>')
+
+    # main(UDP_SERVER_HOST, UDP_SERVER_PORT, USERNAME)
+    main()
 
     # TXT_FILE_EXTENSION = '.txt'
 
