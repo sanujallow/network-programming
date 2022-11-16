@@ -40,9 +40,9 @@ def process_login(user: User):
     usr_name = user.get_username()
     usr_address = user.get_client_address()
 
-    users = user_data_file.read()
+    users_from_file = user_data_file.read()
 
-    if usr_name in users.keys():
+    if usr_name in users_from_file.keys():
         isNewUser = False
         send(existing_usr_msg, usr_address)
     else:
@@ -52,20 +52,18 @@ def process_login(user: User):
 
     login_data = process_datagram(password_datagram)
     password = login_data[2].strip()
-    print('password: ', password)
 
     if (isNewUser):
         user.set_password(password)
         update_clients(user_data_file, user)
         isLoggedIn = True
-        print('your password is: ', password.strip())
     else:
-        if (password == users[usr_name]['password']):
-            user.set_session_state(User.SessionState.ACTIVE)
-            active_users.update({user.get_username(): user})
+        if (password == users_from_file[usr_name]['password']):
             isLoggedIn = True
 
-    # users = user_data_file.read()
+    user.set_session_state(User.SessionState.ACTIVE)
+    active_users.update({user.get_username(): user})
+
     acknowledge(
         usr_address, f'SUCCESS|Login success' if isLoggedIn else 'FAIL|Incorrect Password')
     return isLoggedIn
@@ -86,6 +84,7 @@ def broadcast(username, message, active_users):
     for user in users:
         user: User = user
         send(message, user.get_client_address())
+    print(message)
 
 
 def acknowledge(client_address, ack_msg):
@@ -103,42 +102,36 @@ def send(message: str, client_address: tuple):
 
 
 def listen(datagram, active_users: dict):
-    while datagram:
-        try:
-            print('*** message received ***')
+    print('*** message received ***')
+    try:
+        rcvd_address, rcvd_msg_type, rcvd_msg = process_datagram(datagram)
+        user: User = None
 
-            rcvd_address, rcvd_msg_type, rcvd_msg = process_datagram(datagram)
+        if 'LOGIN' in rcvd_msg.upper():
+            username = rcvd_msg.split(' ')[1]
+            user = User(username, rcvd_address)
 
-            # print(f'Received messag:\n{client_message}\n')
-            print(f'received client_address: {rcvd_address}')
-            print(f'received message_type: {rcvd_msg_type}')
+        for active_usr in active_users.values():
+            active_usr: User = active_usr
+            if active_usr.get_client_address() == rcvd_address:
+                user = active_usr
 
-            user: User = None
-
-            if 'LOGIN' in rcvd_msg.upper():
-                username = rcvd_msg.split(' ')[1]
-                user = User(username, rcvd_address)
-
-            for active_usr in active_users.values():
-                active_usr: User = active_usr
-                if active_usr.get_client_address() == rcvd_address:
-                    user = active_usr
-
-            if rcvd_msg_type == 'PM':
-                broadcast(user.get_username(), rcvd_msg, active_users)
-                return
-            elif rcvd_msg_type == 'C':
-                execute_command(user, rcvd_msg, active_users)
-                return
-            elif rcvd_msg_type == 'DM':
-                process_directmsg(user, rcvd_msg, active_users)
-                return
-            elif rcvd_msg_type == 'EX':
-                end_client_session(user, active_users)
-                return
-        except Exception as e:
-            acknowledge(rcvd_address,
-                        f'FAIL|Sorry there has been been a problem:\n {e}')
+        if rcvd_msg_type == 'PM':
+            broadcast(user.get_username(), rcvd_msg, active_users)
+            return
+        elif rcvd_msg_type == 'C':
+            execute_command(user, rcvd_msg, active_users)
+            return
+        elif rcvd_msg_type == 'DM':
+            process_directmsg(user, rcvd_msg, active_users)
+            return
+        elif rcvd_msg_type == 'EX':
+            end_client_session(user, active_users)
+            return
+    except Exception as e:
+        traceback.print_exc()
+        acknowledge(rcvd_address,
+                    f'FAIL|Sorry there has been been a problem:\n {e}')
     return
 
 
@@ -151,6 +144,8 @@ def execute_command(user: User, client_message, active_users: dict):
         return
 
     if username in active_users.keys():
+        user.set_session_state(User.SessionState.ACTIVE)
+        user = active_users[username]
         send(f'{username} is logged in', user_address)
         return
     else:
@@ -193,10 +188,8 @@ def update_clients(file: File, user: User):
 
 def main():
     print(f'The server is listening on port {UDP_SERVER_PORT}')
-
     while True:
-        print("online users: ", list(active_users.keys()))
-        print('Waiting ...')
+        print('waiting')
         datagram = serverSocket.recvfrom(1024)
         listn_thread = Thread(target=listen, args=[datagram, active_users])
         listn_thread.start()
