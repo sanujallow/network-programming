@@ -8,37 +8,30 @@ from threading import Thread
 from filehandler import File
 from user import User
 import traceback
-from collections import namedtuple
 
 
+# Constants
 serverSocket = socket(AF_INET, SOCK_DGRAM)
 LOCALHOST = '127.0.0.1'
-UTF_8 = 'utf_8'
-
-active_users = {}
-# Prepare a sever socket
+UTF_8 = 'utf-8'
 
 
-def initialize_server(server_port):
-    SERVER_PORT = server_port
-    serverSocket.bind((LOCALHOST, SERVER_PORT))
+def initialize_server(server_host, server_port):
+    """binds server socket to server port and host address"""
+
+    serverSocket.bind((server_host, server_port))
 
 
-def calculate_checksum(message):
-    return hashlib.md5(message.encode(UTF_8)).hexdigest()
-
-
-def process_datagram(datagram):
-    client_address = datagram[1]
-    print('client_address_line31: ', client_address)
-    client_data = datagram[0].decode().partition('|')
-    print('client_data_line33: ', client_data)
-    message_type = client_data[0].strip()
-    client_message = client_data[2].strip()
-    return (client_address, client_data, message_type, client_message)
+def is_valid_message(datagram):
+    clien_data = datagram[0].decode().partition('|')
+    client_msg = clien_data[2].strip()
+    return False if len(client_msg) == 0 else True
 
 
 def process_login(user: User):
+    isNewUser = True
+    isLoggedIn = False
+
     data_file = "chat_users.json"
     user_data_file = File(data_file)
     existing_usr_msg = 'Your account exists, send your password to login'
@@ -49,9 +42,6 @@ def process_login(user: User):
 
     users = user_data_file.read()
 
-    isNewUser = True
-    isLoggedIn = False
-
     if usr_name in users.keys():
         isNewUser = False
         send(existing_usr_msg, usr_address)
@@ -61,28 +51,45 @@ def process_login(user: User):
     password_datagram = serverSocket.recvfrom(1024)
 
     login_data = process_datagram(password_datagram)
-
-    print('password: ', login_data[3])
+    password = login_data[2].strip()
+    print('password: ', password)
 
     if (isNewUser):
-        user.set_password(login_data[3])
-        isLoggedIn = True
+        user.set_password(password)
         update_clients(user_data_file, user)
-        users = user_data_file.read()
-
-    if (login_data[3] == users[usr_name]['password']):
-        send('200| Login success', usr_address)
         isLoggedIn = True
+        print('your password is: ', password.strip())
     else:
-        send('401| Incorrect Password', usr_address)
+        if (password == users[usr_name]['password']):
+            user.set_session_state(User.SessionState.ACTIVE)
+            active_users.update({user.get_username(): user})
+            isLoggedIn = True
 
+    # users = user_data_file.read()
+    acknowledge(
+        usr_address, f'SUCCESS|Login success' if isLoggedIn else 'FAIL|Incorrect Password')
     return isLoggedIn
 
 
-def broadcast(message):
-    user_addresses = active_users.values
-    for address in user_addresses:
-        send(message, address)
+def process_datagram(datagram):
+    client_address = datagram[1]
+    client_data_tokens = datagram[0].decode().partition('|')
+    message_type = client_data_tokens[0].strip()
+    client_message = client_data_tokens[2].strip()
+    return (client_address, message_type, client_message)
+
+
+def broadcast(username, message, active_users):
+    message = '>> '.join([username, message])
+    users = list(active_users.values())
+
+    for user in users:
+        user: User = user
+        send(message, user.get_client_address())
+
+
+def acknowledge(client_address, ack_msg):
+    send(ack_msg, client_address)
 
 
 def direct_msg(message, from_user, to_user):
@@ -91,59 +98,91 @@ def direct_msg(message, from_user, to_user):
         send(message, to_user)
 
 
-def add_active_user(username, client_address):
-    active_users.update({username: client_address})
-
-
 def send(message: str, client_address: tuple):
     serverSocket.sendto(message.encode(UTF_8),  client_address)
 
 
-def listen():
-    while True:
-        print('Waiting ...')
-
+def listen(datagram, active_users: dict):
+    while datagram:
         try:
-            datagram = serverSocket.recvfrom(1024)
-            print('*** new message ***')
+            print('*** message received ***')
 
-            received_timestamp = datetime.now()
-            client_data = datagram[0].decode()
-            message_type = client_data.split('|')[0].strip()
-            client_message = client_data.split('|')[1]
-            client_address = datagram[1]
-            calculated_checksum = calculate_checksum(client_message)
+            rcvd_address, rcvd_msg_type, rcvd_msg = process_datagram(datagram)
 
-            # prints the date and time
-            print(f'Received time: {received_timestamp.ctime()}')
-            print(f'Received messag:\n{client_message}\n')
-            print(f'received client_address: {client_address}')
-            print(f'received message_type: {message_type}')
-            print(f'calculated checksum: {calculated_checksum}')
+            # print(f'Received messag:\n{client_message}\n')
+            print(f'received client_address: {rcvd_address}')
+            print(f'received message_type: {rcvd_msg_type}')
 
-            user = User(client_message, None, client_address)
-            isLoggedIn = process_login(user)
+            user: User = None
 
-            print(
-                f'{user.get_username()} is logged in') if isLoggedIn == True else None
-            print()
+            if 'LOGIN' in rcvd_msg.upper():
+                username = rcvd_msg.split(' ')[1]
+                user = User(username, rcvd_address)
+
+            for active_usr in active_users.values():
+                active_usr: User = active_usr
+                if active_usr.get_client_address() == rcvd_address:
+                    user = active_usr
+
+            if rcvd_msg_type == 'PM':
+                broadcast(user.get_username(), rcvd_msg, active_users)
+                return
+            elif rcvd_msg_type == 'C':
+                execute_command(user, rcvd_msg, active_users)
+                return
+            elif rcvd_msg_type == 'DM':
+                process_directmsg(user, rcvd_msg, active_users)
+                return
+            elif rcvd_msg_type == 'EX':
+                end_client_session(user, active_users)
+                return
         except Exception as e:
-            traceback.print_exc()
-            # sys.exit()
-            return
-
-        # process_msg_thread = Thread(target = process_client_msg, args=(received_timestamp, message_type, client_message, client_address, calculated_checksum)
-
-            # if (calculated_checksum == received_checksum):
-            #     server_response = received_timestamp.ctime()
-            #     serverSocket.sendto(server_response.encode(UTF_8),  client_address)
-            # else:
-            #     error_msg = 'checksum mismatch error'
-            #     error_msg += '\nACK 0'
-            #     serverSocket.sendto(error_msg.encode(UTF_8),  client_address)
+            acknowledge(rcvd_address,
+                        f'FAIL|Sorry there has been been a problem:\n {e}')
+    return
 
 
-# def process_client_msg(received_timestamp, message_type, client_message, client_address, calculated_checksum):
+def execute_command(user: User, client_message, active_users: dict):
+    username = user.get_username()
+    user_address = user.get_client_address()
+
+    if client_message.upper() == 'USERS':
+        send(str(list(active_users.keys())), user_address)
+        return
+
+    if username in active_users.keys():
+        send(f'{username} is logged in', user_address)
+        return
+    else:
+        user.set_session_state(User.SessionState.LOGIN_REQUESTED)
+        active_users.update({user.get_username(): user})
+        login_result = process_login(user)
+        print(
+            f'{username} is logged in') if login_result == True else None
+    return
+
+
+def process_directmsg(user: User, client_message, active_users: dict):
+    recipient = client_message.partition('|')[0]
+
+    if not recipient:
+        send(list(active_users.keys()))
+
+    dm = client_message.partition('|')[2]
+    dm = ': '.join([f'direct_msg from {user.get_username()}', dm])
+
+    if recipient in active_users.keys():
+        recipient: User = active_users[recipient]
+        send(dm, recipient.get_client_address())
+        acknowledge(user.get_client_address(),
+                    f'SUCCESS|message DM sent to {recipient.get_username()}')
+
+
+def end_client_session(user: User, active_users: dict):
+    active_users.pop(user.get_username())
+    user = None
+
+
 def load_clients(file: File):
     return File.read()
 
@@ -153,14 +192,19 @@ def update_clients(file: File, user: User):
 
 
 def main():
-    listn_thread = Thread(target=listen)
+    print(f'The server is listening on port {UDP_SERVER_PORT}')
 
-    listn_thread.start()
+    while True:
+        print("online users: ", list(active_users.keys()))
+        print('Waiting ...')
+        datagram = serverSocket.recvfrom(1024)
+        listn_thread = Thread(target=listen, args=[datagram, active_users])
+        listn_thread.start()
+        listn_thread.join()
 
 
 if __name__ == "__main__":
-    # parse user arguments
     UDP_SERVER_PORT = int(sys.argv[1])
-    initialize_server(UDP_SERVER_PORT)
-    print(f'The server is listening on port {UDP_SERVER_PORT}')
+    serverSocket.bind((LOCALHOST, UDP_SERVER_PORT))
+    active_users = dict()
     main()
