@@ -1,9 +1,11 @@
-#Summary: 
+##Summary: 
+
 A program web server that handles http requests from a client and returns an HTTP response along with requested content if content is available. 
 
 
 
 #included files
+
 server code: 	server_simple_udp.py
 client code: 	client_simple_udp.py
 file: 		file.txt #this is a test file
@@ -17,6 +19,7 @@ The server receives the message as well as the checksum. It first records the lo
     The client receives the response message from the server. If the message is a valid timestamp, print the date and time; otherwise, report an error message (e.g., print "message failed!"). It also calculates and prints the round-trip-time (RTT), in microseconds, from when it sent the message to when it received the response.
 
 #usage
+
 First run the server and then run the client. 
 
 To star the server: 
